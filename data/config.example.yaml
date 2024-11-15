@@ -1,0 +1,28 @@
+plex:
+  url: "http://localhost:32400"
+  token: "your-plex-token-here"
+  libraries:
+    - "Movies"
+    - "TV Shows"
+
+search:
+  method: "quick"              # 'quick' for API search, 'deep' for full scan
+  patterns:
+    - "TBA"
+    - "TBD"
+    - "To Be Announced"
+  case_sensitive: false
+  include_full_title: false    # Set to true to search full titles, not just episode titles
+  episode_scan_limit: null     # Set a number to limit episodes per show, null for no limit
+
+refresh:
+  interval_seconds: 3600       # Run every hour
+  delay_between_items: 2       # Seconds to wait between refreshing items
+  dry_run: true               # Set to false to perform actual refresh
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "/app/data/logs/plex_refresh.log"
+  max_size_mb: 10
+  backup_count: 3

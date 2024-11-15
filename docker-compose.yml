@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  plex-metadata-refresh:
+    build: .
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+    stop_grace_period: 10s  # Give the container time to exit gracefully
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
