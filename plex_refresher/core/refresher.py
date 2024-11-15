@@ -22,48 +22,99 @@ class PlexMetadataRefresher:
             self.logger.info("=== DRY RUN MODE - NO CHANGES WILL BE MADE ===")
 
     def get_tba_items(self, library) -> List[TBAItem]:
+        search_method = self.config['search']['method']
+        if search_method == 'quick':
+            return self._quick_search(library)
+        else:
+            return self._deep_search(library)
+
+    def _quick_search(self, library) -> List[TBAItem]:
+        """Perform a quick search using Plex's search API"""
         tba_items = []
         patterns = self.config['search']['patterns']
         case_sensitive = self.config['search'].get('case_sensitive', False)
         
         try:
-            if library.type == 'movie':
-                self.logger.info(f"Scanning movie library: {library.title}")
-                for pattern in patterns:
-                    self.logger.info(f"  Searching for movies with pattern: '{pattern}'")
-                    items = library.search(title=pattern)
-                    if items:
-                        self.logger.info(f"    Found {len(items)} movies matching '{pattern}'")
-                        for item in items:
-                            self.logger.info(f"      - {item.title} ({getattr(item, 'year', 'Unknown')})")
-                            tba_items.append(TBAItem.from_movie(item))
-                    else:
-                        self.logger.info(f"    No movies found matching '{pattern}'")
+            self.logger.info(f"Quick searching library: {library.title}")
+            
+            for pattern in patterns:
+                self.logger.info(f"  Searching for pattern: '{pattern}'")
+                
+                # Use Plex's search API directly
+                items = library.search(title=pattern)
+                if items:
+                    self.logger.info(f"    Found {len(items)} items matching '{pattern}'")
                     
+                    for item in items:
+                        if library.type == 'movie':
+                            self.logger.info(f"      Found movie: {item.title} ({getattr(item, 'year', 'Unknown')})")
+                            tba_items.append(TBAItem.from_movie(item))
+                        elif library.type == 'show' and hasattr(item, 'type') and item.type == 'episode':
+                            self.logger.info(f"      Found episode: {item.grandparentTitle} - S{item.seasonNumber:02d}E{item.episodeNumber:02d} - {item.title}")
+                            tba_items.append(TBAItem.from_episode(item, item.show()))
+                else:
+                    self.logger.info(f"    No items found matching '{pattern}'")
+                    
+        except Exception as e:
+            self.logger.error(f"Error quick searching items in library {library.title}: {str(e)}")
+        
+        return tba_items
+
+    def _deep_search(self, library) -> List[TBAItem]:
+        """Perform a deep search by scanning all items"""
+        tba_items = []
+        patterns = self.config['search']['patterns']
+        case_sensitive = self.config['search'].get('case_sensitive', False)
+        include_full_title = self.config['search'].get('include_full_title', False)
+        episode_limit = self.config['search'].get('episode_scan_limit')
+        
+        try:
+            if library.type == 'movie':
+                self.logger.info(f"Deep scanning movie library: {library.title}")
+                movies = library.all()
+                total_movies = len(movies)
+                self.logger.info(f"  Scanning {total_movies} movies")
+                
+                for idx, movie in enumerate(movies, 1):
+                    title = movie.title if case_sensitive else movie.title.upper()
+                    patterns_to_check = patterns if case_sensitive else [p.upper() for p in patterns]
+                    
+                    if any(pattern in title for pattern in patterns_to_check):
+                        self.logger.info(f"    Found matching movie ({idx}/{total_movies}): {movie.title} ({getattr(movie, 'year', 'Unknown')})")
+                        tba_items.append(TBAItem.from_movie(movie))
+                    
+                    if idx % 100 == 0:
+                        self.logger.info(f"    Processed {idx}/{total_movies} movies...")
+                
             elif library.type == 'show':
                 shows = library.all()
                 total_shows = len(shows)
-                self.logger.info(f"Scanning TV library: {library.title} ({total_shows} shows)")
+                self.logger.info(f"Deep scanning TV library: {library.title} ({total_shows} shows)")
                 
-                for show_index, show in enumerate(shows, 1):
-                    self.logger.info(f"  Scanning show {show_index}/{total_shows}: {show.title}")
+                for show_idx, show in enumerate(shows, 1):
+                    self.logger.info(f"  Scanning show {show_idx}/{total_shows}: {show.title}")
                     episodes = show.episodes()
-                    if episodes:
-                        for episode in episodes:
-                            title = episode.title if case_sensitive else episode.title.upper()
-                            patterns_to_check = patterns if case_sensitive else [p.upper() for p in patterns]
-                            
-                            if any(pattern in title for pattern in patterns_to_check):
-                                self.logger.info(f"    Found matching episode: S{episode.seasonNumber:02d}E{episode.episodeNumber:02d} - {episode.title}")
-                                tba_items.append(TBAItem.from_episode(episode, show))
-                
-                if tba_items:
-                    self.logger.info(f"  Found {len(tba_items)} matching episodes in {library.title}")
-                else:
-                    self.logger.info(f"  No matching episodes found in {library.title}")
+                    
+                    if episode_limit:
+                        episodes = episodes[:episode_limit]
+                        self.logger.info(f"    Limited to {episode_limit} episodes per show")
+                    
+                    for episode in episodes:
+                        # Check episode title
+                        title = episode.title if case_sensitive else episode.title.upper()
+                        patterns_to_check = patterns if case_sensitive else [p.upper() for p in patterns]
+                        
+                        # If configured, also check full title (Show Name - Episode Title)
+                        if include_full_title:
+                            full_title = f"{show.title} - {episode.title}"
+                            title = full_title if case_sensitive else full_title.upper()
+                        
+                        if any(pattern in title for pattern in patterns_to_check):
+                            self.logger.info(f"    Found matching episode: S{episode.seasonNumber:02d}E{episode.episodeNumber:02d} - {episode.title}")
+                            tba_items.append(TBAItem.from_episode(episode, show))
                             
         except Exception as e:
-            self.logger.error(f"Error searching items in library {library.title}: {str(e)}")
+            self.logger.error(f"Error deep scanning items in library {library.title}: {str(e)}")
         
         return tba_items
 
@@ -104,6 +155,7 @@ class PlexMetadataRefresher:
 
     def refresh_metadata(self):
         self.logger.info("\nStarting metadata refresh scan...")
+        self.logger.info(f"Search method: {self.config['search']['method']}")
         plex = self.plex_client.connect()
         if not plex:
             return

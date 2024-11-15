@@ -8,12 +8,15 @@ CONFIG_SCHEMA = {
             'libraries': {'type': (list, type(None)), 'required': False}
         }
     },
-    'search': {  # New section
+    'search': {
         'required': True,
         'type': dict,
         'fields': {
+            'method': {'type': str, 'required': True, 'values': ['quick', 'deep'], 'default': 'quick'},
             'patterns': {'type': list, 'required': True},
-            'case_sensitive': {'type': bool, 'required': False, 'default': False}
+            'case_sensitive': {'type': bool, 'required': False, 'default': False},
+            'include_full_title': {'type': bool, 'required': False, 'default': False},  # Search full titles for patterns
+            'episode_scan_limit': {'type': int, 'required': False, 'default': None}     # Limit episodes per show (deep scan only)
         }
     },
     'refresh': {
