@@ -15,8 +15,8 @@ CONFIG_SCHEMA = {
             'method': {'type': str, 'required': True, 'values': ['quick', 'deep'], 'default': 'quick'},
             'patterns': {'type': list, 'required': True},
             'case_sensitive': {'type': bool, 'required': False, 'default': False},
-            'include_full_title': {'type': bool, 'required': False, 'default': False},  # Search full titles for patterns
-            'episode_scan_limit': {'type': int, 'required': False, 'default': None}     # Limit episodes per show (deep scan only)
+            'include_full_title': {'type': bool, 'required': False, 'default': False},
+            'episode_scan_limit': {'type': (int, type(None)), 'required': False, 'default': None}  # Allow None or int
         }
     },
     'refresh': {

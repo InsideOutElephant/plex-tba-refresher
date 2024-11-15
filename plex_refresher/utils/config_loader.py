@@ -22,23 +22,38 @@ class ConfigLoader:
 
     @classmethod
     def validate_config_field(cls, field_name: str, field_value: Any, rules: Dict) -> Any:
-        if not isinstance(field_value, rules['type']):
+        """Validate a single configuration field against its rules."""
+        # Handle None value for fields that allow it
+        if field_value is None and isinstance(rules['type'], tuple) and type(None) in rules['type']:
+            return None
+
+        # Handle normal type validation
+        if isinstance(rules['type'], tuple):
+            valid_types = tuple(t for t in rules['type'] if t is not type(None))
+            if not isinstance(field_value, valid_types):
+                raise ConfigurationError(
+                    f"Invalid type for {field_name}. Expected one of {[t.__name__ for t in valid_types]}, got {type(field_value).__name__}"
+                )
+        elif not isinstance(field_value, rules['type']):
             raise ConfigurationError(
                 f"Invalid type for {field_name}. Expected {rules['type'].__name__}, got {type(field_value).__name__}"
             )
 
+        # Check minimum value for numeric fields
         if isinstance(field_value, (int, float)) and 'min' in rules:
             if field_value < rules['min']:
                 raise ConfigurationError(
                     f"{field_name} must be at least {rules['min']}"
                 )
 
+        # Check maximum value for numeric fields
         if isinstance(field_value, (int, float)) and 'max' in rules:
             if field_value > rules['max']:
                 raise ConfigurationError(
                     f"{field_name} must be no more than {rules['max']}"
                 )
 
+        # Check allowed values
         if 'values' in rules and field_value not in rules['values']:
             raise ConfigurationError(
                 f"Invalid value for {field_name}. Must be one of: {', '.join(rules['values'])}"
