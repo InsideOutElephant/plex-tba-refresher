@@ -12,7 +12,7 @@ class PlexClient:
         
         # Log token format for debugging
         self.logger.debug(f"Token length: {len(self.token)}")
-        self.logger.debug(f"Token preview: {self.token[:4]}...{self.token[-4:] if len(self.token) >= 8 else ''}") # // FAILING TO CONNECT TO SERVER DUE TO INVALID TOKEN. THESE LOGGER MESSAGES ARE NOT APPEARING IN THE OUTPUT. NOT SURE WHERE THE CONNECTION IS OCCURRING IF NOT HERE
+        self.logger.debug(f"Token preview: {self.token[:4]}...{self.token[-4:] if len(self.token) >= 8 else ''}")
         self.logger.debug(f"Token contains whitespace: {' ' in self.token}")
         self.logger.debug(f"Token is alphanumeric: {self.token.isalnum()}")
 
