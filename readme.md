@@ -34,10 +34,50 @@ plex:
     - "TV Shows"
 ```
 
-4. Build and run with Docker Compose:
+## Running the Application
+
+The application can be run in two modes: dry run and continuous service.
+
+### Dry Run Mode
+Use this to test your configuration and see what items would be refreshed without making any changes:
+
+1. Set `dry_run: true` in your config.yaml:
+```yaml
+refresh:
+  interval_seconds: 3600
+  delay_between_items: 2
+  dry_run: true
+```
+
+2. Run the container:
+```bash
+docker-compose run --rm plex-metadata-refresh
+```
+This will:
+- Run once and show what would be refreshed
+- Exit after completion
+- Remove the container (`--rm`)
+
+### Continuous Service Mode
+Use this for actual operation:
+
+1. Set `dry_run: false` in your config.yaml:
+```yaml
+refresh:
+  interval_seconds: 3600
+  delay_between_items: 2
+  dry_run: false
+```
+
+2. Run the container:
 ```bash
 docker-compose up -d
 ```
+This will:
+- Run continuously
+- Refresh metadata at configured intervals
+- Restart automatically if it stops
+- Run in the background (`-d`)
 
 ## Configuration
 
