@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 from plex_refresher.exceptions.config_errors import ConfigurationError  # Fixed import
 from plex_refresher.config.config_schema import CONFIG_SCHEMA          # Fixed import
 import logging
+from pathlib import Path
 
 class ConfigLoader:
     @staticmethod
@@ -86,7 +87,16 @@ class ConfigLoader:
         return validated
 
     @classmethod
-    def load_and_validate(cls, config_path: Path = Path('/app/data/config.yaml')) -> Dict:
+    def load_and_validate(cls, config_path: Path = None) -> Dict:
+        # Docker path: /app/data/config.yaml
+        # Local path: ./data/config.yaml
+        if config_path is None:
+            # Check for Docker environment first
+            docker_path = Path('/app/data/config.yaml')
+            local_path = Path('data/config.yaml')
+            
+            config_path = docker_path if docker_path.exists() else local_path
+
         if not config_path.exists():
             raise ConfigurationError(f"Configuration file not found: {config_path}")
             
