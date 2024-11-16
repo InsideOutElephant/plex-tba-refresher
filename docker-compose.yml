@@ -8,6 +8,7 @@ services:
     restart: unless-stopped
     environment:
       - TZ=UTC
+      - PYTHONUNBUFFERED=1    # Ensure Python output isn't buffered
     stop_grace_period: 10s  # Give the container time to exit gracefully
     logging:
       driver: "json-file"

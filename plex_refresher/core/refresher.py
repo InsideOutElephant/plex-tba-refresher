@@ -32,31 +32,50 @@ class PlexMetadataRefresher:
         """Perform a quick search using Plex's search API"""
         tba_items = []
         patterns = self.config['search']['patterns']
-        case_sensitive = self.config['search'].get('case_sensitive', False)
         
         try:
             self.logger.info(f"Quick searching library: {library.title}")
+            self.logger.info(f"Library key: {library.key}")  # Log the library identifier
             
             for pattern in patterns:
                 self.logger.info(f"  Searching for pattern: '{pattern}'")
                 
-                # Use Plex's search API directly
-                items = library.search(title=pattern)
-                if items:
-                    self.logger.info(f"    Found {len(items)} items matching '{pattern}'")
+                # Log the actual search URL being used
+                search_url = f"{self.plex_client.url}/library/sections/{library.key}/search?query={pattern}&type={'4' if library.type == 'show' else '1'}"
+                self.logger.info(f"  Search URL: {search_url}")
+                
+                # Use the Plex API's search functionality
+                if library.type == 'show':
+                    # Type 4 is for episodes
+                    results = library.search(title=pattern, libtype='episode')
+                else:
+                    # Type 1 is for movies
+                    results = library.search(title=pattern, libtype='movie')
+
+                if results:
+                    self.logger.info(f"    Found {len(results)} items matching '{pattern}'")
                     
-                    for item in items:
-                        if library.type == 'movie':
-                            self.logger.info(f"      Found movie: {item.title} ({getattr(item, 'year', 'Unknown')})")
-                            tba_items.append(TBAItem.from_movie(item))
-                        elif library.type == 'show' and hasattr(item, 'type') and item.type == 'episode':
-                            self.logger.info(f"      Found episode: {item.grandparentTitle} - S{item.seasonNumber:02d}E{item.episodeNumber:02d} - {item.title}")
-                            tba_items.append(TBAItem.from_episode(item, item.show()))
+                    for item in results:
+                        try:
+                            if library.type == 'movie':
+                                self.logger.info(f"      Found movie: {item.title} ({getattr(item, 'year', 'Unknown')})")
+                                tba_items.append(TBAItem.from_movie(item))
+                            elif hasattr(item, 'type') and item.type == 'episode':
+                                self.logger.info(
+                                    f"      Found episode: {item.grandparentTitle} - "
+                                    f"S{item.seasonNumber:02d}E{item.episodeNumber:02d} - {item.title}"
+                                )
+                                tba_items.append(TBAItem.from_episode(item, item.show()))
+                        except Exception as e:
+                            self.logger.error(f"Error processing search result: {str(e)}")
                 else:
                     self.logger.info(f"    No items found matching '{pattern}'")
+
+            self.logger.info(f"  Total items found in {library.title}: {len(tba_items)}")
                     
         except Exception as e:
-            self.logger.error(f"Error quick searching items in library {library.title}: {str(e)}")
+            self.logger.error(f"Error searching items in library {library.title}: {str(e)}")
+            self.logger.debug("Detailed error: ", exc_info=True)
         
         return tba_items
 
@@ -155,10 +174,11 @@ class PlexMetadataRefresher:
 
     def refresh_metadata(self):
         self.logger.info("\nStarting metadata refresh scan...")
-        self.logger.info(f"Search method: {self.config['search']['method']}")
         plex = self.plex_client.connect()
+        
         if not plex:
-            return
+            self.logger.error("Could not connect to Plex server. Exiting.")
+            sys.exit(1)  # Exit with error status
 
         try:
             if 'libraries' not in self.config['plex']:
